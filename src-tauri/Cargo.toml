@@ -1,0 +1,22 @@
+[package]
+name = "proxytg-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "proxytg_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+grammers-client = { version = "0.9.0", features = ["proxy"] }
+grammers-session = { version = "0.9.0", features = ["sqlite-storage"] }
+once_cell = "1"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["macros", "rt", "sync"] }
