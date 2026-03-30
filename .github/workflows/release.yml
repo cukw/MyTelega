@@ -16,6 +16,7 @@ concurrency:
 env:
   APP_DIR: .
   RELEASE_TAG: build-${{ github.sha }}
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   changes:
@@ -56,7 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          release_count="$(gh release list --limit 1 --json tagName --jq 'length')"
+          release_count="$(gh release list --repo "$GH_REPO" --limit 1 --json tagName --jq 'length')"
           if [[ "$release_count" -eq 0 ]]; then
             echo "bootstrap=true" >> "$GITHUB_OUTPUT"
           else
@@ -99,10 +100,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
             echo "release exists: $RELEASE_TAG"
           else
             gh release create "$RELEASE_TAG" \
+              --repo "$GH_REPO" \
               --title "ProxyTG build ${GITHUB_SHA::12}" \
               --notes "Automated build for commit $GITHUB_SHA"
           fi
@@ -158,7 +160,7 @@ jobs:
         if: needs.changes.outputs.desktop == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" proxytg-linux.tar.gz --clobber
+        run: gh release upload "$RELEASE_TAG" proxytg-linux.tar.gz --repo "$GH_REPO" --clobber
 
       - name: Reuse Linux asset
         if: needs.changes.outputs.desktop != 'true'
@@ -203,7 +205,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
-        run: gh release upload "$env:RELEASE_TAG" proxytg-windows.zip --clobber
+        run: gh release upload "$env:RELEASE_TAG" proxytg-windows.zip --repo "$env:GH_REPO" --clobber
 
       - name: Reuse Windows asset
         if: needs.changes.outputs.desktop != 'true'
@@ -245,7 +247,7 @@ jobs:
         if: needs.changes.outputs.desktop == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" proxytg-macos.zip --clobber
+        run: gh release upload "$RELEASE_TAG" proxytg-macos.zip --repo "$GH_REPO" --clobber
 
       - name: Reuse macOS asset
         if: needs.changes.outputs.desktop != 'true'
@@ -297,7 +299,7 @@ jobs:
         if: needs.changes.outputs.android == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" proxytg-android.apk --clobber
+        run: gh release upload "$RELEASE_TAG" proxytg-android.apk --repo "$GH_REPO" --clobber
 
       - name: Reuse Android asset
         if: needs.changes.outputs.android != 'true'
@@ -352,7 +354,7 @@ jobs:
         if: needs.changes.outputs.ios == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" proxytg-ios.ipa --clobber
+        run: gh release upload "$RELEASE_TAG" proxytg-ios.ipa --repo "$GH_REPO" --clobber
 
       - name: Reuse iOS asset
         if: needs.changes.outputs.ios != 'true'

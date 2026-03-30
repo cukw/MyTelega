@@ -9,28 +9,39 @@ fi
 current_tag="$1"
 asset_name="$2"
 
+if [[ -z "${GH_TOKEN:-}" ]]; then
+  echo "GH_TOKEN is required" >&2
+  exit 1
+fi
+
+repo="${GH_REPO:-${GITHUB_REPOSITORY:-}}"
+if [[ -z "$repo" ]]; then
+  echo "GH_REPO or GITHUB_REPOSITORY is required" >&2
+  exit 1
+fi
+
 tmp_dir="$(mktemp -d)"
 cleanup() {
   rm -rf "$tmp_dir"
 }
 trap cleanup EXIT
 
-if ! gh release view "$current_tag" >/dev/null 2>&1; then
+if ! gh release view "$current_tag" --repo "$repo" >/dev/null 2>&1; then
   echo "release '$current_tag' was not found" >&2
   exit 1
 fi
 
-mapfile -t release_tags < <(gh release list --limit 100 --json tagName --jq '.[].tagName')
+mapfile -t release_tags < <(gh release list --repo "$repo" --limit 100 --json tagName --jq '.[].tagName')
 
 for tag in "${release_tags[@]}"; do
   if [[ "$tag" == "$current_tag" ]]; then
     continue
   fi
 
-  if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -Fxq "$asset_name"; then
+  if gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' 2>/dev/null | grep -Fxq "$asset_name"; then
     echo "reusing '$asset_name' from release '$tag'"
-    gh release download "$tag" --pattern "$asset_name" --dir "$tmp_dir"
-    gh release upload "$current_tag" "$tmp_dir/$asset_name" --clobber
+    gh release download "$tag" --repo "$repo" --pattern "$asset_name" --dir "$tmp_dir"
+    gh release upload "$current_tag" --repo "$repo" "$tmp_dir/$asset_name" --clobber
     echo "uploaded reused asset '$asset_name' to '$current_tag'"
     exit 0
   fi
