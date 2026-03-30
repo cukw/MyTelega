@@ -304,18 +304,10 @@ jobs:
           rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
 
           npm ci
-          npm run tauri -- android init --ci || true
-          npm run tauri -- android build -v --ci --apk || {
-            echo "::warning::Tauri Android build failed, rerunning Gradle with stacktrace for diagnostics."
-            if [[ -x src-tauri/gen/android/gradlew ]]; then
-              src-tauri/gen/android/gradlew \
-                --project-dir src-tauri/gen/android \
-                app:assembleRelease \
-                --stacktrace \
-                --info
-            fi
-            exit 1
-          }
+          TAURI_CMD=(node ./node_modules/@tauri-apps/cli/tauri.js)
+          "${TAURI_CMD[@]}" android init --ci || true
+          set -o pipefail
+          "${TAURI_CMD[@]}" android build -v --ci --apk 2>&1 | tee android-build.log
 
           APK_PATH="$(find src-tauri/gen/android -name '*release*.apk' | head -n1)"
           cp "$APK_PATH" proxytg-android.apk
@@ -364,7 +356,8 @@ jobs:
           rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 
           npm ci
-          npm run tauri -- ios init --ci || true
+          TAURI_CMD=(node ./node_modules/@tauri-apps/cli/tauri.js)
+          "${TAURI_CMD[@]}" ios init --ci || true
 
           if [[ -z "${APPLE_DEVELOPMENT_TEAM:-}" || -z "${APPLE_CERTIFICATE_BASE64:-}" || -z "${APPLE_CERTIFICATE_PASSWORD:-}" || -z "${APPLE_KEYCHAIN_PASSWORD:-}" || -z "${APPLE_PROVISION_PROFILE_BASE64:-}" ]]; then
             echo "::warning::Skipping fresh iOS IPA build because Apple signing credentials are not fully configured. Reusing the previous iOS release asset when available."
@@ -388,7 +381,7 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/"
 
-          npm run tauri -- ios build --ci -- -- DEVELOPMENT_TEAM="$APPLE_DEVELOPMENT_TEAM"
+          "${TAURI_CMD[@]}" ios build --ci -- DEVELOPMENT_TEAM="$APPLE_DEVELOPMENT_TEAM"
 
           IPA_PATH="$(find src-tauri/gen/apple -name '*.ipa' | head -n1 || true)"
 
