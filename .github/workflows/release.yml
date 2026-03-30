@@ -39,6 +39,7 @@ jobs:
               - 'src-tauri/src/**'
               - 'src-tauri/Cargo.toml'
               - 'src-tauri/tauri.conf.json'
+              - 'src-tauri/icons/**'
               - 'package.json'
               - 'package-lock.json'
               - 'vite.config.ts'
@@ -47,7 +48,6 @@ jobs:
               - 'scripts/ci/**'
             desktop_only:
               - 'src-tauri/capabilities/**'
-              - 'src-tauri/icons/**'
             android_only:
               - 'src-tauri/gen/android/**'
             ios_only:
@@ -279,6 +279,18 @@ jobs:
       - uses: android-actions/setup-android@v3
         if: needs.changes.outputs.android == 'true'
 
+      - name: Install Android SDK packages
+        if: needs.changes.outputs.android == 'true'
+        run: |
+          mkdir -p "$HOME/.android"
+          touch "$HOME/.android/repositories.cfg"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;29.0.14206865"
+
       - name: Build Android APK
         if: needs.changes.outputs.android == 'true'
         env:
@@ -290,7 +302,17 @@ jobs:
 
           npm ci
           npm run tauri -- android init --ci || true
-          npm run tauri -- android build --ci --apk
+          npm run tauri -- android build -v --ci --apk || {
+            echo "::warning::Tauri Android build failed, rerunning Gradle with stacktrace for diagnostics."
+            if [[ -x src-tauri/gen/android/gradlew ]]; then
+              src-tauri/gen/android/gradlew \
+                --project-dir src-tauri/gen/android \
+                app:assembleRelease \
+                --stacktrace \
+                --info
+            fi
+            exit 1
+          }
 
           APK_PATH="$(find src-tauri/gen/android -name '*release*.apk' | head -n1)"
           cp "$APK_PATH" proxytg-android.apk
